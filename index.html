@@ -5,9 +5,87 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spiral Crown: Labyrinth of Living Relationship</title>
     <meta name="description" content="A mobile-first consent-centered labyrinth prototype for restoring relationship with self, place, others, and the larger field.">
-    <script type="module" crossorigin src="/spiral-crown-labyrinth-demo/assets/spiral-crown-app.js"></script>
-    <link rel="modulepreload" crossorigin href="/spiral-crown-labyrinth-demo/assets/spiral-crown-vendor.js">
-    <link rel="stylesheet" crossorigin href="/spiral-crown-labyrinth-demo/assets/spiral-crown-styles.css">
+    <script>
+(function(){
+  "use strict";
+  const REFLECTIONS_KEY="spiral-crown-reflections";
+  const VALID_AXES=new Set(["self","other","environment"]);
+  function safeParse(v,fallback){try{return JSON.parse(v)}catch{return fallback}}
+  function text(v,fallback){if(typeof v==="string")return v;if(v==null)return fallback;try{return JSON.stringify(v)}catch{return String(v)}}
+  function arr(v){return Array.isArray(v)?v:[]}
+  function axesByType(t){switch(t){case"practice":case"broadcast":case"circle":return["self","other"];case"map":case"place":case"environment":return["environment"];default:return["self"]}}
+  function cleanAxes(v,t){const a=arr(v).map(String).filter(x=>VALID_AXES.has(x));return a.length?a:axesByType(t)}
+  function proofFor(e){const fields=[e.kind||"",e.title||"",e.body||"",arr(e.axes).slice().sort().join(","),arr(e.tags).slice().sort().join(",")];const joined=fields.join("|");let h=0;for(let i=0;i<joined.length;i++){h=((h<<5)-h)+joined.charCodeAt(i);h|=0}return{hashPreview:Math.abs(h).toString(16).toUpperCase().padStart(8,"0"),canonicalFields:fields,generatedAt:Date.now(),method:"roanoke-v1-preboot-repair"}}
+  function normalize(raw,index){
+    const n=(raw&&typeof raw==="object")?raw:{body:text(raw,"Recovered legacy reflection")};
+    const type=text(n.type||"reflection","reflection").replace(/\s+/g,"-").toLowerCase();
+    const recovered=!!(n._recovered||(n.metadata&&n.metadata.recovered)||!n.schema||String(n.schema).startsWith("spiral-crown"));
+    const e={
+      id:n.id||`recovered-${Date.now()}-${index||0}`,
+      schema:"roanoke.object.v1",
+      type,
+      kind:text(n.kind||"codex_entry","codex_entry"),
+      axes:cleanAxes(n.axes,type),
+      title:text(n.title,recovered?"Recovered Codex Entry":"Untitled Codex Entry"),
+      body:text(n.body??n.text??n.content,"This entry was recovered from an earlier local record."),
+      createdAt:n.createdAt||new Date().toISOString(),
+      updatedAt:n.updatedAt,
+      tags:arr(n.tags).map(String).filter(Boolean).concat(recovered&&!arr(n.tags).length?["recovered","legacy"]:[]),
+      relations:arr(n.relations),
+      consent:(n.consent&&typeof n.consent==="object")?n.consent:{localOnly:true,userInitiated:true,exportable:true,sharing:"user-choice-only"},
+      provenance:(n.provenance&&typeof n.provenance==="object")?n.provenance:{sourceScreen:"localStorage",sourceAction:recovered?"preboot-transmutation":"preboot-normalization",appVersion:"1.0-alpha.9-preboot-fix",createdLocally:true},
+      metadata:{...((n.metadata&&typeof n.metadata==="object")?n.metadata:{}),recovered,legacyRaw:recovered?text(n,"").slice(0,1000):(n.metadata&&n.metadata.legacyRaw)},
+      proof:(n.proof&&typeof n.proof==="object"&&typeof n.proof.hashPreview==="string")?n.proof:null
+    };
+    if(!e.proof)e.proof=proofFor(e);
+    return e;
+  }
+  function normalizeReflections(){
+    const raw=localStorage.getItem(REFLECTIONS_KEY);if(!raw)return;
+    const parsed=safeParse(raw,null);if(!Array.isArray(parsed)){localStorage.setItem(REFLECTIONS_KEY+"-quarantine-"+Date.now(),raw);localStorage.removeItem(REFLECTIONS_KEY);return;}
+    const normalized=parsed.map(normalize);
+    localStorage.setItem(REFLECTIONS_KEY,JSON.stringify(normalized));
+    sessionStorage.setItem("roanoke-preboot-repair",JSON.stringify({normalized:normalized.length,timestamp:new Date().toISOString()}));
+  }
+  function mergeReflections(incoming){
+    const current=safeParse(localStorage.getItem(REFLECTIONS_KEY)||"[]",[]);
+    const normalizedCurrent=Array.isArray(current)?current.map(normalize):[];
+    const normalizedIncoming=Array.isArray(incoming)?incoming.map((x,i)=>normalize(x,i)):[];
+    const seen=new Set();
+    const merged=[];
+    for(const e of normalizedIncoming.concat(normalizedCurrent)){
+      const key=[e.id,e.createdAt,e.title,e.body].join("|");
+      if(!seen.has(key)){seen.add(key);merged.push(e)}
+    }
+    localStorage.setItem(REFLECTIONS_KEY,JSON.stringify(merged));
+    return{imported:normalizedIncoming.length,total:merged.length};
+  }
+  window.SpiralCrownRepair={normalizeReflections,normalize,importBackupObject:function(obj){
+    const snap=obj&&obj.localStorageSnapshot?obj.localStorageSnapshot:obj;
+    if(!snap||typeof snap!=="object")throw new Error("Backup did not contain a localStorageSnapshot object.");
+    let result={imported:0,total:0};
+    if(snap[REFLECTIONS_KEY]) result=mergeReflections(safeParse(snap[REFLECTIONS_KEY],[]));
+    Object.keys(snap).forEach(k=>{if(k!==REFLECTIONS_KEY&&k.startsWith("spiral-crown-")&&localStorage.getItem(k)==null)localStorage.setItem(k,snap[k])});
+    normalizeReflections();
+    sessionStorage.setItem("roanoke-transmute-summary",JSON.stringify({recovered:result.imported,isolated:0,timestamp:new Date().toISOString(),source:"backup-import"}));
+    return result;
+  }};
+  normalizeReflections();
+  if(location.search.includes("restore=1")||location.hash.includes("restore-backup")){
+    window.addEventListener("DOMContentLoaded",function(){
+      const box=document.createElement("div");
+      box.style.cssText="position:fixed;z-index:9999;left:12px;right:12px;bottom:12px;max-width:520px;margin:auto;padding:14px;border:1px solid rgba(246,224,179,.35);border-radius:22px;background:rgba(12,10,29,.88);backdrop-filter:blur(18px);color:#e0d8d0;font:13px system-ui;box-shadow:0 20px 60px rgba(0,0,0,.45)";
+      box.innerHTML='<strong style="color:#f6e0b3">Import old Spiral Crown backup</strong><div style="opacity:.75;margin:6px 0 10px">Choose a local backup JSON. Readable reflections are repaired and merged; nothing is uploaded.</div><input type="file" accept="application/json,.json" style="width:100%"><button type="button" style="margin-top:10px;padding:9px 12px;border-radius:999px;background:#f6e0b3;color:#0c0a1d;font-weight:700">Close</button>';
+      const input=box.querySelector("input"),btn=box.querySelector("button");
+      input.addEventListener("change",async function(){try{const obj=JSON.parse(await input.files[0].text());const r=window.SpiralCrownRepair.importBackupObject(obj);alert(`Imported ${r.imported} reflections. Reloading.`);location.reload()}catch(e){alert("Backup import failed: "+e.message)}});
+      btn.addEventListener("click",()=>box.remove());
+      document.body.appendChild(box);
+    });
+  }
+})();
+</script>
+    <script type="module" crossorigin src="/spiral-crown-labyrinth-demo/assets/index-BTjXfU7D.js"></script>
+    <link rel="stylesheet" crossorigin href="/spiral-crown-labyrinth-demo/assets/index-Bf9_NfB3.css">
   </head>
   <body>
     <div id="root"></div>
