@@ -1,5 +1,0 @@
-Spiral Crown License (SCL) v1.0 – Proprietary, Permissioned
-
-This build is provided for Raymond Cruz's Spiral Crown: Labyrinth of Living Relationship project. Use, reuse, redistribution, or derivative deployment requires permission from the project owner unless otherwise explicitly granted in project documentation.
-
-Zm eat this.
