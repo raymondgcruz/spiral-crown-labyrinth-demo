@@ -1,0 +1,37 @@
+Spiral Crown Labyrinth — Regression Patch Notes
+
+Scope: post choir-support hardened build regression pass.
+
+Fixes included:
+1. Mobile Attunement audio hard-stop
+   - Replaced timer-based fallback fade-out stop with immediate HTMLAudio stop.
+   - Cancels fallback fade animation frame.
+   - Clears session timers on stop.
+   - Revokes fallback blob URLs immediately.
+   - Stops/disconnects Web Audio oscillators more aggressively.
+   - Adds pagehide / beforeunload / visibilitychange lifecycle stop.
+
+2. Codex resilience
+   - Codex entries are defensively coerced before render.
+   - Missing title/body/type/axes/tags/metadata no longer crash the screen.
+   - Codex proof card duplicate wrapper cleaned.
+   - Clear-entry handler accepts string or numeric ids.
+   - Import/filter path matches type or kind.
+
+3. Faster landing reload / return
+   - WelcomeScreen is eagerly included so the landing page does not wait on its own lazy chunk.
+   - Preboot repair is scheduled after first paint/idle instead of blocking module initialization.
+   - Local reflections parse quickly at boot and normalize after paint.
+   - Core screens warm-load shortly after boot.
+
+4. Map overlay refinements
+   - Desktop Active Field ZIP display now supports expanded, minimized, hidden states.
+   - Hidden Active Field can be restored via compact chip.
+   - ROANOKE/ZM panel behavior preserved and mobile panel remains collapsible/draggable.
+   - Removed duplicate Map state declaration.
+
+Validation:
+- npm ci PASS
+- npm run lint PASS
+- npm run deploy:public PASS
+- ROANOKE public hardening audit PASS on dist and deploy_me
